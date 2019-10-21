@@ -1,0 +1,80 @@
+- name: set up apt repository
+  apt_repository:
+    repo: ppa:ansible/ansible
+
+- name: install ansible
+  apt:
+    name: ansible
+    update_cache: yes
+
+- name: pull install repo
+  git:
+    repo: https://github.com/ljesmin/ansible_example.git
+    dest: '/root/ansible'
+    force: yes
+    update: yes
+    umask: '077'
+  notify: deploy_ansible run ansible service
+
+- name: create ansible inventory
+  copy:
+    dest: '/root/ansible/inventory.ini'
+    content: |
+      {{ inventory_hostname }} ansible_connection=local
+    owner: 'root'
+    group: 'root'
+    mode: 0600
+  notify: deploy_ansible run ansible service
+
+- name: create host vars directory
+  file:
+    path: '/root/ansible/host_vars'
+    owner: 'root'
+    group: 'root'
+    mode: 0700
+    state: directory
+
+- name: create host variable file
+  copy:
+    dest: "/root/ansible/host_vars/{{ inventory_hostname }}.yml"
+    owner: 'root'
+    group: 'root'
+    mode: 0600
+    content: "{{ hostvars[inventory_hostname] | clean_ansible | to_nice_yaml }}"
+  notify: deploy_ansible run ansible service
+
+- name: create systemd service file
+  copy:
+    dest: '/etc/systemd/system/ansible.service'
+    owner: 'root'
+    group: 'root'
+    mode: 0644
+    content: |
+      [Unit]
+      Description=Run ansible playbook
+
+      [Service]
+      Type=oneshot
+      WorkingDirectory=/root/ansible
+      ExecStart=-/usr/bin/ansible-playbook run.yml
+      User=root
+      Group=root
+      SyslogIdentifier=ansible
+  notify: deploy_ansible run ansible service
+
+- name: create systemd timer file
+  copy:
+    dest: '/etc/systemd/system/ansible.timer'
+    owner: 'root'
+    group: 'root'
+    mode: 0644
+    content: |
+      [Unit]
+      Description=Run ansible by schedule
+
+      [Timer]
+      OnCalendar=hourly
+
+      [Install]
+      WantedBy=multi-user.target
+  notify: deploy_ansible start timer

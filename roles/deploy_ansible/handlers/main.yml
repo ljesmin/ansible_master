@@ -1,0 +1,11 @@
+- name: deploy_ansible run ansible service
+  systemd:
+    name: ansible.service
+    daemon_reload: yes
+
+- name: deploy_ansible start timer
+  systemd:
+    name: ansible.timer
+    enabled: yes
+    state: started
+    daemon_reload: yes
